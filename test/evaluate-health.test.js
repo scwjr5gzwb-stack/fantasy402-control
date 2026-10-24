@@ -6,7 +6,8 @@ describe("evaluate-health", () => {
     const r = evaluateHealth(
       {
         health: {
-          overall: "green",
+          manifestPresent: true,
+          tracePresent: true,
           allGatesPass: true,
           gateFailures: 0,
         },
@@ -37,7 +38,12 @@ describe("evaluate-health", () => {
   test("low coverage alert", () => {
     const r = evaluateHealth(
       {
-        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+        },
         manifest: {
           graphCohort: {
             cohortJoin: { gradedRotCoveragePct: 0.75 },
@@ -57,7 +63,12 @@ describe("evaluate-health", () => {
   test("pending html without parse triggers warning", () => {
     const r = evaluateHealth(
       {
-        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+        },
         manifest: {
           graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
         },
@@ -75,7 +86,12 @@ describe("evaluate-health", () => {
   test("pending snapshot skip on pending replay is amber", () => {
     const r = evaluateHealth(
       {
-        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+        },
         manifest: {
           graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
         },
@@ -91,12 +107,19 @@ describe("evaluate-health", () => {
     expect(r.alerts.some((a) => a.code === "pending_snapshot_missing")).toBe(
       true,
     );
+    expect(r.overall).toBe("amber");
+    expect(r.ok).toBe(false);
   });
 
   test("missing pending trace after capture is critical", () => {
     const r = evaluateHealth(
       {
-        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+        },
         manifest: {
           graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
         },
@@ -109,12 +132,18 @@ describe("evaluate-health", () => {
       { coverageMin: 0.8 },
     );
     expect(r.alerts.some((a) => a.code === "pending_parse_failed")).toBe(true);
+    expect(r.overall).toBe("red");
   });
 
   test("graded replay html skip does not pending-alert", () => {
     const r = evaluateHealth(
       {
-        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+        },
         manifest: {
           graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
         },

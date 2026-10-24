@@ -14,7 +14,16 @@ export function evaluateHealth(metrics, opts = {}) {
   /** @type {Array<{ code: string, message: string, severity: string }>} */
   const alerts = [];
 
-  if (h.overall === "red") {
+  const manifestPresent = h.manifestPresent === true;
+  const tracePresent = h.tracePresent === true;
+  const gatesPass = h.allGatesPass === true;
+
+  /** @type {"green" | "amber" | "red"} */
+  let overall = "red";
+  if (manifestPresent && tracePresent && gatesPass) overall = "green";
+  else if (manifestPresent || tracePresent) overall = "amber";
+
+  if (!manifestPresent && !tracePresent) {
     alerts.push({
       code: "artifacts_missing",
       message: "Manifest or trace artifacts missing under skills root",
@@ -59,14 +68,14 @@ export function evaluateHealth(metrics, opts = {}) {
   const basisPending = pending.replayBasis === "pending";
   const htmlCaptured = pending.htmlSnapshotCaptured === true;
   const htmlSkipped = pending.htmlSnapshotSkipped === true;
-  const tracePresent = pending.pendingTracePresent === true;
+  const pendingTraceOnDisk = pending.pendingTracePresent === true;
   const boundRots = pending.boundRots;
   const skipReason =
     typeof pending.htmlSnapshotReason === "string"
       ? pending.htmlSnapshotReason
       : "unknown";
 
-  if (basisPending && htmlCaptured && !tracePresent) {
+  if (basisPending && htmlCaptured && !pendingTraceOnDisk) {
     alerts.push({
       code: "pending_parse_failed",
       message:
@@ -75,7 +84,7 @@ export function evaluateHealth(metrics, opts = {}) {
     });
   } else if (
     htmlCaptured &&
-    tracePresent &&
+    pendingTraceOnDisk &&
     (boundRots == null || (typeof boundRots === "number" && boundRots === 0))
   ) {
     alerts.push({
@@ -102,12 +111,22 @@ export function evaluateHealth(metrics, opts = {}) {
     });
   }
 
-  const ok = alerts.length === 0 && h.overall === "green";
+  if (alerts.some((a) => a.severity === "critical")) {
+    overall = "red";
+  } else if (
+    alerts.some((a) => a.severity === "warning") &&
+    overall === "green"
+  ) {
+    overall = "amber";
+  }
+
+  const ok = alerts.length === 0 && overall === "green";
   return {
     ok,
+    overall,
     alerts: withRemediations(alerts),
     snapshot: {
-      overall: h.overall ?? null,
+      overall,
       gradedRotCoveragePct: pct ?? h.gradedRotCoveragePct ?? null,
       gateFailures: gateFailures ?? null,
       threshold,

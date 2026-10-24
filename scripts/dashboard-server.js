@@ -74,9 +74,26 @@ function renderHtml(m) {
   const badge =
     h.overall === "green" ? "ok" : h.overall === "amber" ? "warn" : "bad";
   const pending = /** @type {Record<string, unknown>} */ (m.pending ?? {});
-  const pendingLive = pending.available === true;
-  const pendingPill = pendingLive ? "live" : "off";
-  const pendingPillText = pendingLive ? "Live" : "Offline";
+  const pendingGraphLive = pending.available === true;
+  const pendingDomStale = pending.pendingTraceStale === true;
+  const pendingSnapshotSkipped = pending.htmlSnapshotSkipped === true;
+  const pendingWarn =
+    pending.replayBasis === "pending" && pendingSnapshotSkipped;
+  const pendingCardClass = pendingWarn
+    ? "pending-warn"
+    : pendingGraphLive
+      ? "pending-live"
+      : "pending-off";
+  const pendingPill = pendingWarn
+    ? "warn"
+    : pendingGraphLive
+      ? "live"
+      : "off";
+  const pendingPillText = pendingWarn
+    ? "Snapshot missing"
+    : pendingGraphLive
+      ? "Live"
+      : "Offline";
   const replayBasis = String(m.replayCohort ?? gc.basis ?? "—");
 
   return `<!DOCTYPE html>
@@ -98,9 +115,11 @@ function renderHtml(m) {
     main { padding: 1.25rem 1.5rem 2rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .card { background: var(--panel); border: 1px solid #243044; border-radius: 10px; padding: 1rem 1.1rem; }
     .card.pending-live { border-left: 4px solid var(--ok); }
+    .card.pending-warn { border-left: 4px solid var(--warn); }
     .card.pending-off { border-left: 4px solid var(--muted); }
     .pill { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
     .pill.live { color: var(--ok); }
+    .pill.warn { color: var(--warn); }
     .pill.off { color: var(--muted); }
     .card h2 { margin: 0 0 0.65rem; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
     .metric { font-size: 1.65rem; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -140,10 +159,10 @@ function renderHtml(m) {
       <div class="metric">${fmtNum(summary.rows)} legs</div>
       <div class="sub">${fmtNum(summary.edges)} edges · build ${manifest.liveBuild ?? "—"}</div>
     </section>
-    <section class="card ${pendingLive ? "pending-live" : "pending-off"}">
+    <section class="card ${pendingCardClass}">
       <h2>Pending graph <span class="pill ${pendingPill}">${pendingPillText}</span></h2>
       <div class="metric">${fmtNum(pending.legs)} legs</div>
-      <div class="sub">${fmtNum(pending.edges)} edges · DOM rots ${fmtNum(pending.boundRots)}</div>
+      <div class="sub">${fmtNum(pending.edges)} edges · DOM rots ${pendingDomStale ? "— (stale trace)" : fmtNum(pending.boundRots)}</div>
       <div class="sub">HTML snapshot: ${pending.htmlSnapshotCaptured ? "yes" : pending.htmlSnapshotSkipped ? "skipped" : "—"}${pending.htmlSnapshotReason ? ` (${escapeHtml(String(pending.htmlSnapshotReason).slice(0, 48))})` : ""}</div>
     </section>
     <section class="card">

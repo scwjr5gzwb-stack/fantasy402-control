@@ -1,4 +1,5 @@
 import { join } from "path";
+import { evaluateHealth } from "./evaluate-health.js";
 
 /** @returns {string} */
 export function skillsRoot() {
@@ -33,6 +34,8 @@ export function buildPendingMetrics(manifest, graphSummary, pendingTrace) {
   const snap = /** @type {Record<string, unknown>} */ (
     manifest?.pendingHtmlSnapshot ?? {}
   );
+  const snapshotSkipped =
+    basis === "pending" && snap.skipped === true;
 
   /** @type {Record<string, unknown>} */
   const pending = {
@@ -47,6 +50,7 @@ export function buildPendingMetrics(manifest, graphSummary, pendingTrace) {
     htmlSnapshotSkipped: snap.skipped === true,
     htmlSnapshotReason: typeof snap.reason === "string" ? snap.reason : null,
     pendingTracePresent: pendingTrace != null,
+    pendingTraceStale: false,
   };
 
   if (basis === "pending") {
@@ -57,7 +61,9 @@ export function buildPendingMetrics(manifest, graphSummary, pendingTrace) {
     pending.available = pending.legs != null || pending.edges != null;
   }
 
-  if (pendingTrace) {
+  if (pendingTrace && snapshotSkipped) {
+    pending.pendingTraceStale = true;
+  } else if (pendingTrace) {
     pending.boundRots = pendingTrace.legTraceCount ?? null;
     pending.gateFailures = pendingTrace.gateFailureCount ?? null;
     pending.available = true;
@@ -153,14 +159,10 @@ export async function loadControlMetrics(root = skillsRoot()) {
     pendingTraceRaw,
   );
 
-  out.health.overall =
-    out.health.manifestPresent &&
-    out.health.tracePresent &&
-    out.health.allGatesPass === true
-      ? "green"
-      : out.health.manifestPresent || out.health.tracePresent
-        ? "amber"
-        : "red";
+  const evaluation = evaluateHealth(out);
+  out.health.overall = evaluation.overall;
+  out.health.ok = evaluation.ok;
+  out.health.activeAlerts = evaluation.alerts;
 
   return out;
 }
