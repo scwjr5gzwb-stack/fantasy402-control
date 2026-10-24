@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
+import { join } from "path";
 import { isSafeLoginSegment } from "../scripts/lib/pair-route-guard.js";
 import { dispatch } from "../scripts/dashboard-server.js";
 
@@ -18,7 +19,7 @@ describe("pair-route-guard", () => {
     expect(isSafeLoginSegment("KYM150")).toBe(true);
   });
 
-  test("traversal guard property (seed 42, 10 runs)", () => {
+  test("traversal guard property (seed 42, 10 runs; .. explicit)", () => {
     fc.assert(
       fc.property(
         fc.oneof(
@@ -47,8 +48,8 @@ describe("pair-route-guard", () => {
   });
 });
 
-describe("dispatch /api/pair", () => {
-  test("returns 400 for traversal login segment without reading artifacts", async () => {
+describe("dispatch /api/pair traversal (integration)", () => {
+  test("returns 400 for .. via dispatch", async () => {
     const res = await dispatch(
       new Request("http://127.0.0.1:4020/api/pair?a=..&b=BYT107"),
     );
@@ -57,7 +58,7 @@ describe("dispatch /api/pair", () => {
     expect(body.error).toBe("invalid_login_segment");
   });
 
-  test("returns JSON for valid pair query", async () => {
+  test("returns JSON for valid pair query via dispatch", async () => {
     const res = await dispatch(
       new Request("http://127.0.0.1:4020/api/pair?a=BYT107&b=KYM150"),
     );
@@ -65,5 +66,20 @@ describe("dispatch /api/pair", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.inSummaryTop).not.toBeNull();
+  });
+
+  test("dispatch calls isSafeLoginSegment before loadPairDrill (regression)", async () => {
+    const src = await Bun.file(
+      join(import.meta.dir, "../scripts/dashboard-server.js"),
+    ).text();
+    const pairBlock = src.slice(
+      src.indexOf('url.pathname === "/api/pair"'),
+      src.indexOf('url.pathname === "/health"'),
+    );
+    expect(pairBlock.indexOf("isSafeLoginSegment")).toBeGreaterThan(-1);
+    expect(pairBlock.indexOf("loadPairDrill")).toBeGreaterThan(-1);
+    expect(pairBlock.indexOf("isSafeLoginSegment")).toBeLessThan(
+      pairBlock.indexOf("loadPairDrill"),
+    );
   });
 });
