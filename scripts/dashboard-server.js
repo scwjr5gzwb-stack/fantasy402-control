@@ -1,5 +1,13 @@
 #!/usr/bin/env bun
+import { cohortJoinCardModel, coverageCardModel } from "./lib/dashboard-coverage.js";
+import {
+  renderSyndicateRowHtml,
+  verdictClientScript,
+  verdictRulesBootstrapScript,
+} from "./lib/dashboard-verdict.js";
 import { loadControlMetrics, skillsRoot } from "./lib/load-metrics.js";
+import { loadPairDrill } from "./lib/load-pair-drill.js";
+import { isSafeLoginSegment } from "./lib/pair-route-guard.js";
 import {
   broadcastDashboardReload,
   createSseResponse,
@@ -34,36 +42,15 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-/** @param {unknown} verdict */
-function verdictStyle(verdict) {
-  const v = String(verdict ?? "").toLowerCase();
-  if (v === "coordinated" || v === "copying") {
-    return "color: var(--bad); font-weight: 600;";
-  }
-  if (v === "lean" || v === "steam") {
-    return "color: var(--warn); font-weight: 600;";
-  }
-  return "color: var(--ok); font-weight: 600;";
-}
-
 /** @param {Array<Record<string, unknown>>} top */
 function renderSyndicateRows(top) {
   if (top.length === 0) {
-    return '<tr><td colspan="6" style="text-align: center;">No syndicates flagged.</td></tr>';
+    return '<tr><td colspan="9" style="text-align: center;">No syndicates flagged.</td></tr>';
   }
   return top
-    .map((t) => {
-      const style = verdictStyle(t.verdict);
-      const label = escapeHtml(String(t.verdict ?? "").toUpperCase());
-      return `<tr>
-      <td>${escapeHtml(t.a)} / ${escapeHtml(t.b)}</td>
-      <td>${escapeHtml(t.sameGames)}</td>
-      <td>${escapeHtml(t.same)}</td>
-      <td>${escapeHtml(t.opp)}</td>
-      <td>${escapeHtml(t.lead)}</td>
-      <td style="${style}">${label}</td>
-    </tr>`;
-    })
+    .map((t) =>
+      renderSyndicateRowHtml(/** @type {import("./lib/dashboard-verdict.js").TopPair} */ (t), escapeHtml),
+    )
     .join("");
 }
 
@@ -74,12 +61,27 @@ function renderHtml(m) {
   const gc = /** @type {Record<string, unknown>} */ (
     manifest.graphCohort ?? {}
   );
-  const cj = /** @type {Record<string, unknown>} */ (gc.cohortJoin ?? {});
   const summary = /** @type {Record<string, unknown>} */ (m.graphSummary ?? {});
   const topSyndicates = /** @type {Array<Record<string, unknown>>} */ (
-    Array.isArray(summary.top) ? summary.top : []
+    Array.isArray(m.syndicateTop)
+      ? m.syndicateTop
+      : Array.isArray(summary.top)
+        ? summary.top
+        : []
   );
   const syndicateRows = renderSyndicateRows(topSyndicates);
+  const syndicateCaption = String(m.syndicateCaption ?? "");
+  const parityMismatches = /** @type {string[] | undefined} */ (
+    h.artifactSummaryMismatches
+  );
+  const topParityWarn =
+    h.artifactSummaryParity === false
+      ? (parityMismatches?.length
+          ? parityMismatches.join(" · ")
+          : "run-manifest and graph-result disagree.")
+      : "";
+  const coverage = coverageCardModel(m);
+  const cohortJoin = cohortJoinCardModel(m);
   const lastUpdatedAt = new Date(String(m.loadedAt)).toLocaleTimeString();
   const badge =
     h.overall === "green" ? "ok" : h.overall === "amber" ? "warn" : "bad";
@@ -112,7 +114,7 @@ function renderHtml(m) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Fantasy402 Graded Control</title>
   <style>
-    :root { --bg:#0f1419; --panel:#1a2332; --text:#e7ecf3; --muted:#8b9cb3; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --accent:#38bdf8; }
+    :root { --bg:#0f1419; --panel:#1a2332; --text:#e7ecf3; --muted:#8b9cb3; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --unknown:#a855f7; --accent:#38bdf8; }
     * { box-sizing: border-box; }
     body { margin: 0; font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; background: var(--bg); color: var(--text); }
     header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #243044; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
@@ -159,9 +161,10 @@ function renderHtml(m) {
       <div class="sub">gateFailures: ${h.gateFailures ?? "—"}</div>
     </section>
     <section class="card">
-      <h2>Coverage</h2>
-      <div class="metric">${pct(cj.gradedRotCoveragePct)}</div>
-      <div class="sub">${cj.gradedLegsWithBoundRot ?? "—"} bound / ${cj.gradedInfoSampled ?? "—"} sampled</div>
+      <h2>${escapeHtml(coverage.title)}</h2>
+      <div class="metric">${escapeHtml(coverage.metric)}</div>
+      <div class="sub">${escapeHtml(coverage.sub)}</div>
+      ${coverage.hint ? `<div class="sub">${escapeHtml(coverage.hint)}</div>` : ""}
     </section>
     <section class="card">
       <h2>Last graph replay (${escapeHtml(replayBasis)})</h2>
@@ -175,17 +178,22 @@ function renderHtml(m) {
       <div class="sub">HTML snapshot: ${pending.htmlSnapshotCaptured ? "yes" : pending.htmlSnapshotSkipped ? "skipped" : "—"}${pending.htmlSnapshotReason ? ` (${escapeHtml(String(pending.htmlSnapshotReason).slice(0, 48))})` : ""}</div>
     </section>
     <section class="card">
-      <h2>Cohort join</h2>
+      <h2>${escapeHtml(cohortJoin.title)}</h2>
       <dl>
-        <dt>strategy</dt><dd>${cj.joinStrategy ?? "—"}</dd>
-        <dt>ambiguous keys</dt><dd>${cj.ambiguousAmountKeys ?? "—"}</dd>
-        <dt>timing suppressed</dt><dd>${cj.timingVerdictsSuppressed ?? "—"}</dd>
-        <dt>pipelineReady</dt><dd>${h.pipelineReady ?? "—"}</dd>
+        ${cohortJoin.rows
+          .map(
+            (r) =>
+              `<dt>${escapeHtml(r.label)}</dt><dd>${escapeHtml(r.value)}</dd>`,
+          )
+          .join("\n        ")}
       </dl>
+      ${cohortJoin.hint ? `<div class="sub">${escapeHtml(cohortJoin.hint)}</div>` : ""}
     </section>
   </main>
   <section class="syndicate-wrap">
     <h2>Top coordinated syndicates</h2>
+    <div id="syndicate-caption" class="sub">${escapeHtml(syndicateCaption)}</div>
+    ${topParityWarn ? `<div class="sub" style="color: var(--unknown);">${escapeHtml(topParityWarn)}</div>` : ""}
     <div id="last-updated">Last updated: ${lastUpdatedAt}</div>
     <table id="syndicate-table">
       <thead>
@@ -195,6 +203,9 @@ function renderHtml(m) {
           <th>Same</th>
           <th>Opp</th>
           <th>Lead</th>
+          <th>sub1h</th>
+          <th>medΔ</th>
+          <th>leadF</th>
           <th>Verdict</th>
         </tr>
       </thead>
@@ -202,11 +213,14 @@ function renderHtml(m) {
         ${syndicateRows}
       </tbody>
     </table>
+    <p class="sub">Verdict suffix: S = zero sub-1h samples (coordinated); O = more opp than same. medΔ color: &lt;5m tight, 5–30m delayed, 30–60m slow, UNVERIFIED = sentinel.</p>
   </section>
   <footer>
     Snapshot ${String(m.loadedAt)} · API <a href="/api/metrics">/api/metrics</a> ·
     Refresh replay: <code>FANTASY402_GRAPH_COHORT=graded bun run graph:replay</code> in fantasy402-skills
   </footer>
+  ${verdictRulesBootstrapScript()}
+  <script>${verdictClientScript()}</script>
   <script>
     function escapeHtml(s) {
       return String(s)
@@ -216,62 +230,23 @@ function renderHtml(m) {
         .replace(/"/g, "&quot;");
     }
 
-    function verdictStyle(verdict) {
-      const v = String(verdict ?? "").toLowerCase();
-      if (v === "coordinated" || v === "copying") {
-        return "color: var(--bad); font-weight: 600;";
-      }
-      if (v === "lean" || v === "steam") {
-        return "color: var(--warn); font-weight: 600;";
-      }
-      return "color: var(--ok); font-weight: 600;";
-    }
-
     async function updateSyndicates() {
       try {
         const res = await fetch("/api/metrics");
         const data = await res.json();
         const tbody = document.getElementById("syndicate-body");
-        const top = data.graphSummary?.top || [];
+        const top = data.syndicateTop || data.graphSummary?.top || [];
+        const renderRow = window.__dashboardVerdict.renderSyndicateRow;
 
         if (top.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="6" style="text-align: center;">No syndicates flagged.</td></tr>';
-          return;
+            '<tr><td colspan="9" style="text-align: center;">No syndicates flagged.</td></tr>';
+        } else {
+          tbody.innerHTML = top.map((t) => renderRow(t, escapeHtml)).join("");
         }
 
-        tbody.innerHTML = top
-          .map((t) => {
-            const style = verdictStyle(t.verdict);
-            const label = escapeHtml(String(t.verdict ?? "").toUpperCase());
-            return (
-              "<tr>" +
-              "<td>" +
-              escapeHtml(t.a) +
-              " / " +
-              escapeHtml(t.b) +
-              "</td>" +
-              "<td>" +
-              escapeHtml(t.sameGames) +
-              "</td>" +
-              "<td>" +
-              escapeHtml(t.same) +
-              "</td>" +
-              "<td>" +
-              escapeHtml(t.opp) +
-              "</td>" +
-              "<td>" +
-              escapeHtml(t.lead) +
-              "</td>" +
-              '<td style="' +
-              style +
-              '">' +
-              label +
-              "</td>" +
-              "</tr>"
-            );
-          })
-          .join("");
+        const cap = document.getElementById("syndicate-caption");
+        if (cap && data.syndicateCaption) cap.textContent = data.syndicateCaption;
 
         document.getElementById("last-updated").textContent =
           "Last updated: " + new Date().toLocaleTimeString();
@@ -299,55 +274,97 @@ function reloadTriggerAuthorized(req) {
   return req.headers.get("x-reload-token") === token;
 }
 
-const server = Bun.serve({
-  hostname: HOST,
-  port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-    if (url.pathname === "/api/events") {
-      return createSseResponse();
+/** @param {Request} req */
+export async function dispatch(req) {
+  const url = new URL(req.url);
+  if (url.pathname === "/api/events") {
+    return createSseResponse();
+  }
+  if (url.pathname === "/api/trigger-reload" && req.method === "POST") {
+    if (!reloadTriggerAuthorized(req)) {
+      return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
-    if (url.pathname === "/api/trigger-reload" && req.method === "POST") {
-      if (!reloadTriggerAuthorized(req)) {
-        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-      }
-      const clients = broadcastDashboardReload();
-      return Response.json({ ok: true, clients });
+    const clients = broadcastDashboardReload();
+    return Response.json({ ok: true, clients });
+  }
+  if (url.pathname === "/api/autopilot/tick" && req.method === "POST") {
+    if (!reloadTriggerAuthorized(req)) {
+      return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
-    if (url.pathname === "/api/autopilot/tick" && req.method === "POST") {
-      if (!reloadTriggerAuthorized(req)) {
-        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-      }
-      if (autopilotTickShouldSkip()) {
-        return Response.json({
-          ok: true,
-          skipped: true,
-          reason: autopilotTickSkipReason(),
-        });
-      }
-      const row = await runAutopilotTick();
-      markAutopilotTickRan();
+    if (autopilotTickShouldSkip()) {
       return Response.json({
-        ok: row.ok === true,
-        skipped: false,
-        overall: row.snapshot?.overall ?? null,
-        alertCount: row.alerts?.length ?? 0,
+        ok: true,
+        skipped: true,
+        reason: autopilotTickSkipReason(),
       });
     }
-    if (url.pathname === "/api/metrics") {
-      const m = await loadControlMetrics();
-      return Response.json(m);
-    }
-    if (url.pathname === "/health") {
-      return Response.json({ ok: true, skillsRoot: skillsRoot() });
-    }
-    const m = await loadControlMetrics();
-    return new Response(renderHtml(m), {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+    const row = await runAutopilotTick();
+    markAutopilotTickRan();
+    return Response.json({
+      ok: row.ok === true,
+      skipped: false,
+      overall: row.snapshot?.overall ?? null,
+      alertCount: row.alerts?.length ?? 0,
     });
-  },
-});
+  }
+  if (url.pathname === "/api/metrics") {
+    const m = await loadControlMetrics();
+    return Response.json(m);
+  }
+  if (url.pathname === "/api/pair" && req.method === "GET") {
+    const loginA = url.searchParams.get("a");
+    const loginB = url.searchParams.get("b");
+    if (!loginA || !loginB) {
+      return Response.json(
+        { ok: false, error: "missing_query", need: "a,b" },
+        { status: 400 },
+      );
+    }
+    if (!isSafeLoginSegment(loginA) || !isSafeLoginSegment(loginB)) {
+      return Response.json(
+        { ok: false, error: "invalid_login_segment" },
+        { status: 400 },
+      );
+    }
+    const body = await loadPairDrill(loginA.trim(), loginB.trim());
+    if (body.ok === false) {
+      return Response.json(body, { status: 404 });
+    }
+    return Response.json(body);
+  }
+  if (url.pathname === "/health") {
+    return Response.json({ ok: true, skillsRoot: skillsRoot() });
+  }
+  const m = await loadControlMetrics();
+  return new Response(renderHtml(m), {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
 
-console.log(
-  `Dashboard http://${HOST}:${server.port}/  (skills: ${skillsRoot()})`,
-);
+/** @param {Request} req */
+async function fetchWithRouteLog(req) {
+  const t0 = Bun.nanoseconds();
+  try {
+    return await dispatch(req);
+  } finally {
+    console.log(
+      JSON.stringify({
+        method: req.method,
+        pathname: new URL(req.url).pathname,
+        duration_ms: (Bun.nanoseconds() - t0) / 1e6,
+      }),
+    );
+  }
+}
+
+if (import.meta.main) {
+  const server = Bun.serve({
+    hostname: HOST,
+    port: PORT,
+    fetch: fetchWithRouteLog,
+  });
+
+  console.log(
+    `Dashboard http://${HOST}:${server.port}/  (skills: ${skillsRoot()})`,
+  );
+}

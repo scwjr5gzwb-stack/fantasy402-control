@@ -14,5 +14,8 @@
     "test": "bun test test",
     "fmt": "bun fmt",
     "fmt:check": "bun fmt --check"
+  },
+  "devDependencies": {
+    "fast-check": "^4.3.0"
   }
 }
