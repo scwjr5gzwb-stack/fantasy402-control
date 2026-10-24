@@ -33,6 +33,8 @@ bun run doctor
 
 Shows rot gate status, `gradedRotCoveragePct`, last replay summary from `run-manifest.json` and `graded-rot-leg-trace.json`.
 
+Live reload: browsers subscribe to **`GET /api/events`** (SSE). After **`graph:replay`** or autopilot heal, workers **`POST /api/trigger-reload`** so open dashboards refresh without polling.
+
 ## Grok bot
 
 ```bash

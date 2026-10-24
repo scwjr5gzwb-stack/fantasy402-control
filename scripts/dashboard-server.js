@@ -1,5 +1,9 @@
 #!/usr/bin/env bun
 import { loadControlMetrics, skillsRoot } from "./lib/load-metrics.js";
+import {
+  broadcastDashboardReload,
+  createSseResponse,
+} from "./lib/dashboard-sse-hub.js";
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 4020);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
@@ -95,7 +99,6 @@ function renderHtml(m) {
       ? "Live"
       : "Offline";
   const replayBasis = String(m.replayCohort ?? gc.basis ?? "—");
-
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -272,9 +275,22 @@ function renderHtml(m) {
     }
 
     setInterval(updateSyndicates, 10000);
+
+    const sse = new EventSource("/api/events");
+    sse.addEventListener("reload", () => window.location.reload());
+    sse.onerror = () => {
+      /* EventSource reconnects automatically */
+    };
   </script>
 </body>
 </html>`;
+}
+
+/** @param {Request} req */
+function reloadTriggerAuthorized(req) {
+  const token = process.env.FANTASY402_DASHBOARD_RELOAD_TOKEN?.trim();
+  if (!token) return true;
+  return req.headers.get("x-reload-token") === token;
 }
 
 const server = Bun.serve({
@@ -282,6 +298,16 @@ const server = Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
+    if (url.pathname === "/api/events") {
+      return createSseResponse();
+    }
+    if (url.pathname === "/api/trigger-reload" && req.method === "POST") {
+      if (!reloadTriggerAuthorized(req)) {
+        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      }
+      const clients = broadcastDashboardReload();
+      return Response.json({ ok: true, clients });
+    }
     if (url.pathname === "/api/metrics") {
       const m = await loadControlMetrics();
       return Response.json(m);

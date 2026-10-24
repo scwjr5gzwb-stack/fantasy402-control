@@ -1,6 +1,7 @@
 import { loadControlMetrics } from "./load-metrics.js";
 import { evaluateHealth } from "./evaluate-health.js";
 import { tryHealPendingParseFromSnapshot } from "./autopilot-heal.js";
+import { notifyDashboardReload } from "./notify-dashboard-reload.js";
 import {
   appendAutopilotAlert,
   writeAutopilotState,
@@ -17,6 +18,10 @@ export async function runAutopilotTick(controlRoot, options = {}) {
   const heal = await tryHealPendingParseFromSnapshot(metrics.skillsRoot);
   if (heal.healed) {
     metrics = await loadControlMetrics();
+    const reload = await notifyDashboardReload();
+    if (reload.ok) {
+      console.log("[autopilot] dashboard reload signal sent");
+    }
   } else if (heal.error) {
     console.warn("[autopilot] heal failed:", heal.error);
   }
