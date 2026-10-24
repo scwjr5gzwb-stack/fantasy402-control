@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_url="$(git remote get-url origin 2>/dev/null || true)"
+case "$remote_url" in
+  *fantasy402-control*)
+    exit 0
+    ;;
+esac
+
+echo "pre-push: origin must be scwjr5gzwb-stack/fantasy402-control" >&2
+echo "  got: ${remote_url:-<unset>}" >&2
+exit 1

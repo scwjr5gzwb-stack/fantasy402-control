@@ -2,16 +2,16 @@
   "folders": [
     {
       "name": "fantasy402-skills (parser + graph)",
-      "path": "../fantasy402-skills"
+      "path": "../fantasy402-skills",
     },
     {
       "name": "fantasy402-control (dashboard + grok)",
-      "path": "."
-    }
+      "path": ".",
+    },
   ],
   "settings": {
     "files.exclude": {
-      "**/.fantasy402-browser-profile": true
-    }
-  }
+      "**/.fantasy402-browser-profile": true,
+    },
+  },
 }

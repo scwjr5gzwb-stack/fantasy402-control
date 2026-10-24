@@ -53,7 +53,10 @@ async function main() {
   const metricsJson = JSON.stringify(metrics, null, 2);
 
   if (once) {
-    const q = process.argv.filter((a) => a !== "--once").join(" ").trim();
+    const q = process.argv
+      .filter((a) => a !== "--once")
+      .join(" ")
+      .trim();
     if (!q) {
       console.error('Usage: bun run bot:once "your question"');
       process.exit(1);

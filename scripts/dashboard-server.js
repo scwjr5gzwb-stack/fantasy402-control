@@ -13,15 +13,13 @@ function pct(n) {
 function renderHtml(m) {
   const h = /** @type {Record<string, unknown>} */ (m.health ?? {});
   const manifest = /** @type {Record<string, unknown>} */ (m.manifest ?? {});
-  const gc = /** @type {Record<string, unknown>} */ (manifest.graphCohort ?? {});
+  const gc = /** @type {Record<string, unknown>} */ (
+    manifest.graphCohort ?? {}
+  );
   const cj = /** @type {Record<string, unknown>} */ (gc.cohortJoin ?? {});
   const summary = /** @type {Record<string, unknown>} */ (m.graphSummary ?? {});
   const badge =
-    h.overall === "green"
-      ? "ok"
-      : h.overall === "amber"
-        ? "warn"
-        : "bad";
+    h.overall === "green" ? "ok" : h.overall === "amber" ? "warn" : "bad";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -110,4 +108,6 @@ const server = Bun.serve({
   },
 });
 
-console.log(`Dashboard http://${HOST}:${server.port}/  (skills: ${skillsRoot()})`);
+console.log(
+  `Dashboard http://${HOST}:${server.port}/  (skills: ${skillsRoot()})`,
+);

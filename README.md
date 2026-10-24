@@ -6,6 +6,8 @@ Cursor project for **graded cohort operations**: local dashboard + **Grok** ops 
 
 ```bash
 cd ~/fantasy402-control
+direnv allow   # once — avoids sibling fantasy402-skills PATH hijacking git
+bash scripts/setup-local-git.sh
 cp .env.example .env.local
 # Edit FANTASY402_SKILLS_ROOT and XAI_API_KEY
 ```
