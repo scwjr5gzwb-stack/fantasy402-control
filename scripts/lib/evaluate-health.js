@@ -1,3 +1,5 @@
+import { withRemediations } from "./health-remediations.js";
+
 /**
  * @param {Record<string, unknown>} metrics from loadControlMetrics
  * @param {{ coverageMin?: number }} [opts]
@@ -103,7 +105,7 @@ export function evaluateHealth(metrics, opts = {}) {
   const ok = alerts.length === 0 && h.overall === "green";
   return {
     ok,
-    alerts,
+    alerts: withRemediations(alerts),
     snapshot: {
       overall: h.overall ?? null,
       gradedRotCoveragePct: pct ?? h.gradedRotCoveragePct ?? null,

@@ -1,5 +1,6 @@
 import { loadControlMetrics } from "./load-metrics.js";
 import { evaluateHealth } from "./evaluate-health.js";
+import { tryHealPendingParseFromSnapshot } from "./autopilot-heal.js";
 import {
   appendAutopilotAlert,
   writeAutopilotState,
@@ -12,7 +13,13 @@ import { notifyAutopilotAlerts, resetAlertState } from "./notify-telegram.js";
  * @returns {Promise<Record<string, unknown>>}
  */
 export async function runAutopilotTick(controlRoot, options = {}) {
-  const metrics = await loadControlMetrics();
+  let metrics = await loadControlMetrics();
+  const heal = await tryHealPendingParseFromSnapshot(metrics.skillsRoot);
+  if (heal.healed) {
+    metrics = await loadControlMetrics();
+  } else if (heal.error) {
+    console.warn("[autopilot] heal failed:", heal.error);
+  }
   const evaluation = evaluateHealth(metrics);
   const row = {
     at: new Date().toISOString(),
@@ -32,6 +39,9 @@ export async function runAutopilotTick(controlRoot, options = {}) {
     console.error(
       `[autopilot] ${alert.severity} ${alert.code}: ${alert.message}`,
     );
+    if (typeof alert.remediation === "string") {
+      console.error(`[autopilot]   fix: ${alert.remediation}`);
+    }
   }
 
   if (evaluation.alerts.length > 0) {

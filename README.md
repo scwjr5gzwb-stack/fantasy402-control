@@ -23,6 +23,12 @@ cursor fantasy402-graded.code-workspace
 ```bash
 bun run dashboard
 # http://127.0.0.1:4020/
+
+# Or dashboard + autopilot in one terminal:
+bun run ops
+
+# Preflight paths, artifacts, dashboard reachability, health + fix hints:
+bun run doctor
 ```
 
 Shows rot gate status, `gradedRotCoveragePct`, last replay summary from `run-manifest.json` and `graded-rot-leg-trace.json`.

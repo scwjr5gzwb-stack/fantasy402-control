@@ -61,7 +61,15 @@ export async function notifyAutopilotAlerts(alerts, metrics, options = {}) {
     ? "<b>FANTASY402 CRITICAL ALERT</b>"
     : "<b>Fantasy402 Warning</b>";
 
-  const alertList = alerts.map((a) => `• ${escapeHtml(a.message)}`).join("\n");
+  const alertList = alerts
+    .map((a) => {
+      let line = `• ${escapeHtml(a.message)}`;
+      if (typeof a.remediation === "string") {
+        line += `\n  <code>${escapeHtml(a.remediation)}</code>`;
+      }
+      return line;
+    })
+    .join("\n");
 
   const pctRaw = h.gradedRotCoveragePct;
   const pctStr =
