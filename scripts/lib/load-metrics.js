@@ -17,8 +17,32 @@ export function artifactPaths(root) {
     trace: join(base, "graded-rot-leg-trace.json"),
     pendingTrace: join(base, "pending-rot-leg-trace.json"),
     graphResult: join(base, "graph-result.json"),
+    replayLifecycle: join(base, "replay-lifecycle.json"),
     overlayGraded: join(base, "graph-overlay.graded.png"),
   };
+}
+
+/** @param {{ ok?: boolean } | null | undefined} manifest @param {{ ok?: boolean } | null | undefined} sidecar */
+function mergeReplayLifecycleFromSidecar(manifest, sidecar) {
+  if (!sidecar) return manifest ?? null;
+  if (!manifest) return sidecar;
+  if (manifest.ok && !sidecar.ok) return manifest;
+  if (!manifest.ok && sidecar.ok) return sidecar;
+  return sidecar.ok === false ? sidecar : manifest;
+}
+
+/** @param {string} root @param {Record<string, unknown> | null} manifestRaw */
+async function loadReplayLifecycle(root, manifestRaw) {
+  const mod = await import(
+    join(root, "scripts", "lib", "graph-replay-lifecycle.js")
+  );
+  const parse = mod.parseReplayLifecycle;
+  let lc = parse(manifestRaw?.replayLifecycle);
+  const sideFile = Bun.file(artifactPaths(root).replayLifecycle);
+  if (await sideFile.exists()) {
+    lc = mergeReplayLifecycleFromSidecar(lc ?? undefined, parse(await sideFile.json()) ?? undefined);
+  }
+  return lc;
 }
 
 /**
@@ -158,6 +182,22 @@ export async function loadControlMetrics(root = skillsRoot()) {
     /** @type {Record<string, unknown>} */ (out.graphSummary),
     pendingTraceRaw,
   );
+
+  if (manifestRaw) {
+    const replayLifecycle = await loadReplayLifecycle(root, manifestRaw);
+    out.replayLifecycle = replayLifecycle;
+    if (replayLifecycle) {
+      out.health.replayLifecycleOk = replayLifecycle.ok === true;
+      out.health.replayPhase = replayLifecycle.phase;
+      out.health.replayViolation = replayLifecycle.violation;
+      out.health.replayReason = replayLifecycle.reason;
+    } else {
+      out.health.replayLifecycleOk = null;
+      out.health.replayPhase = null;
+      out.health.replayViolation = null;
+      out.health.replayReason = null;
+    }
+  }
 
   const evaluation = evaluateHealth(out, { skillsRoot: out.skillsRoot });
   out.health.overall = evaluation.overall;

@@ -111,6 +111,30 @@ describe("evaluate-health", () => {
     expect(r.ok).toBe(false);
   });
 
+  test("evaluate_interrupted when replayLifecycle task_interrupted", () => {
+    const r = evaluateHealth(
+      {
+        health: {
+          manifestPresent: true,
+          tracePresent: true,
+          allGatesPass: true,
+          gateFailures: 0,
+          replayLifecycleOk: false,
+          replayPhase: "graph_fetch",
+          replayViolation: "task_interrupted",
+          replayReason: "evaluate timeout",
+        },
+        manifest: {
+          finishedAt: "2026-01-01T00:00:00Z",
+          graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
+        },
+      },
+      { coverageMin: 0.8 },
+    );
+    expect(r.alerts.some((a) => a.code === "evaluate_interrupted")).toBe(true);
+    expect(r.overall).toBe("red");
+  });
+
   test("missing pending trace after capture is critical", () => {
     const r = evaluateHealth(
       {

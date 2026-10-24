@@ -114,6 +114,33 @@ export function evaluateHealth(metrics, opts = {}) {
     });
   }
 
+  const replayOk = h.replayLifecycleOk;
+  const replayViolation = h.replayViolation;
+  const replayPhase = h.replayPhase;
+  const replayReason =
+    typeof h.replayReason === "string" ? h.replayReason : null;
+  if (replayOk === false) {
+    if (replayViolation === "task_interrupted") {
+      alerts.push({
+        code: "evaluate_interrupted",
+        message: `Graph evaluate interrupted during ${replayPhase ?? "unknown"}${replayReason ? `: ${replayReason}` : ""}`,
+        severity: "critical",
+      });
+    } else {
+      alerts.push({
+        code: "replay_incomplete",
+        message: `Replay lifecycle stopped at ${replayPhase ?? "error"}${replayReason ? `: ${replayReason}` : ""}`,
+        severity: replayViolation === "validation_failed" ? "critical" : "warning",
+      });
+    }
+  } else if (replayOk == null && manifestPresent && manifest.finishedAt) {
+    alerts.push({
+      code: "replay_lifecycle_missing",
+      message: "Manifest lacks replayLifecycle (pre-instrumentation run)",
+      severity: "warning",
+    });
+  }
+
   if (alerts.some((a) => a.severity === "critical")) {
     overall = "red";
   } else if (
