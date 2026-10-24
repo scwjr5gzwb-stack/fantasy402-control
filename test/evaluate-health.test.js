@@ -61,10 +61,73 @@ describe("evaluate-health", () => {
         manifest: {
           graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
         },
-        pending: { htmlSnapshotCaptured: true, boundRots: 0 },
+        pending: {
+          htmlSnapshotCaptured: true,
+          pendingTracePresent: true,
+          boundRots: 0,
+        },
       },
       { coverageMin: 0.8 },
     );
     expect(r.alerts.some((a) => a.code === "pending_parse_empty")).toBe(true);
+  });
+
+  test("pending snapshot skip on pending replay is amber", () => {
+    const r = evaluateHealth(
+      {
+        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        manifest: {
+          graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
+        },
+        pending: {
+          replayBasis: "pending",
+          htmlSnapshotSkipped: true,
+          htmlSnapshotReason: "no tr[data-ticket]",
+          pendingTracePresent: true,
+        },
+      },
+      { coverageMin: 0.8 },
+    );
+    expect(r.alerts.some((a) => a.code === "pending_snapshot_missing")).toBe(
+      true,
+    );
+  });
+
+  test("missing pending trace after capture is critical", () => {
+    const r = evaluateHealth(
+      {
+        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        manifest: {
+          graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
+        },
+        pending: {
+          replayBasis: "pending",
+          htmlSnapshotCaptured: true,
+          pendingTracePresent: false,
+        },
+      },
+      { coverageMin: 0.8 },
+    );
+    expect(r.alerts.some((a) => a.code === "pending_parse_failed")).toBe(true);
+  });
+
+  test("graded replay html skip does not pending-alert", () => {
+    const r = evaluateHealth(
+      {
+        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        manifest: {
+          graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
+        },
+        pending: {
+          replayBasis: "graded",
+          htmlSnapshotSkipped: true,
+          htmlSnapshotReason: "no tr[data-ticket]",
+        },
+      },
+      { coverageMin: 0.8 },
+    );
+    expect(r.alerts.some((a) => a.code === "pending_snapshot_missing")).toBe(
+      false,
+    );
   });
 });

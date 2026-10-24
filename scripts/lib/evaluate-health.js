@@ -54,10 +54,26 @@ export function evaluateHealth(metrics, opts = {}) {
   const pending = /** @type {Record<string, unknown>} */ (
     metrics.pending ?? {}
   );
+  const basisPending = pending.replayBasis === "pending";
   const htmlCaptured = pending.htmlSnapshotCaptured === true;
+  const htmlSkipped = pending.htmlSnapshotSkipped === true;
+  const tracePresent = pending.pendingTracePresent === true;
   const boundRots = pending.boundRots;
-  if (
+  const skipReason =
+    typeof pending.htmlSnapshotReason === "string"
+      ? pending.htmlSnapshotReason
+      : "unknown";
+
+  if (basisPending && htmlCaptured && !tracePresent) {
+    alerts.push({
+      code: "pending_parse_failed",
+      message:
+        "Pending replay captured HTML but pending-rot-leg-trace.json is missing (run parse-pending or enable auto-parse on replay)",
+      severity: "critical",
+    });
+  } else if (
     htmlCaptured &&
+    tracePresent &&
     (boundRots == null || (typeof boundRots === "number" && boundRots === 0))
   ) {
     alerts.push({
@@ -66,8 +82,14 @@ export function evaluateHealth(metrics, opts = {}) {
         "Pending HTML snapshot captured but pending-rot-leg-trace has no parsed legs",
       severity: "warning",
     });
+  } else if (basisPending && htmlSkipped) {
+    alerts.push({
+      code: "pending_snapshot_missing",
+      message: `Pending HTML snapshot skipped: ${skipReason}`,
+      severity: "warning",
+    });
   } else if (
-    pending.replayBasis === "pending" &&
+    basisPending &&
     pending.available !== true &&
     htmlCaptured
   ) {

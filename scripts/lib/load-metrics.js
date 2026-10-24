@@ -46,6 +46,7 @@ export function buildPendingMetrics(manifest, graphSummary, pendingTrace) {
     htmlSnapshotCaptured: Boolean(snap.path),
     htmlSnapshotSkipped: snap.skipped === true,
     htmlSnapshotReason: typeof snap.reason === "string" ? snap.reason : null,
+    pendingTracePresent: pendingTrace != null,
   };
 
   if (basis === "pending") {

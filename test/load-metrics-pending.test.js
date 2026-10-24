@@ -11,6 +11,7 @@ describe("buildPendingMetrics", () => {
     expect(m.available).toBe(true);
     expect(m.legs).toBe(31459);
     expect(m.htmlSnapshotCaptured).toBe(true);
+    expect(m.pendingTracePresent).toBe(false);
   });
 
   test("pending trace alone marks available with bound rots", () => {
