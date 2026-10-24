@@ -1,0 +1,13 @@
+{
+  "contractVersion": "1",
+  "baseDir": "artifacts/graph-webview",
+  "files": {
+    "runManifest": "run-manifest.json",
+    "graphResult": "graph-result.json",
+    "gradedRotLegTrace": "graded-rot-leg-trace.json",
+    "pendingRotLegTrace": "pending-rot-leg-trace.json",
+    "pendingHtmlSnapshot": "pending-rows.snapshot.html",
+    "gradedCronLastRun": "graded-cron-last-run.json"
+  },
+  "_sync": "Must match fantasy402-skills/schema/artifact-paths.json (see test/artifact-paths-sync.test.js)"
+}

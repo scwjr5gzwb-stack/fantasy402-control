@@ -5,6 +5,11 @@ import {
   createSseResponse,
 } from "./lib/dashboard-sse-hub.js";
 import { runAutopilotTick } from "./lib/run-autopilot-tick.js";
+import {
+  autopilotTickShouldSkip,
+  autopilotTickSkipReason,
+  markAutopilotTickRan,
+} from "./lib/autopilot-tick-guard.js";
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 4020);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
@@ -313,9 +318,18 @@ const server = Bun.serve({
       if (!reloadTriggerAuthorized(req)) {
         return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
       }
+      if (autopilotTickShouldSkip()) {
+        return Response.json({
+          ok: true,
+          skipped: true,
+          reason: autopilotTickSkipReason(),
+        });
+      }
       const row = await runAutopilotTick();
+      markAutopilotTickRan();
       return Response.json({
         ok: row.ok === true,
+        skipped: false,
         overall: row.snapshot?.overall ?? null,
         alertCount: row.alerts?.length ?? 0,
       });
