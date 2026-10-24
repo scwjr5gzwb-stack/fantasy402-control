@@ -66,7 +66,13 @@ Requires **Bun ≥ 1.4.4**.
    bun run autopilot:once     # single health check (exit 0 only when green)
    ```
 
-   Run **`bun run dashboard`** separately for the UI. Alerts log when `gateFailures > 0`, artifacts are missing, or `gradedRotCoveragePct` is below **`FANTASY402_COVERAGE_ALERT_MIN`** (default `0.80`).
+   Run **`bun run dashboard`** separately for the UI. Alerts log to **`artifacts/autopilot/alerts.jsonl`** when `gateFailures > 0`, artifacts are missing, or `gradedRotCoveragePct` is below **`FANTASY402_COVERAGE_ALERT_MIN`** (default `0.80`).
+
+   Optional **Telegram** (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`): deduped RED/AMBER notifications from the same tick path. Preview without sending:
+
+   ```bash
+   bun run autopilot:once --dry-run
+   ```
 
 ## Release tag
 

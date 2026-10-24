@@ -27,6 +27,8 @@ description: >-
 
 Skills repo registers OS replay via `bun run graded:cron:install` (see fantasy402-skills `docs/AUTOMATION.md`).
 
+Optional Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` — sent from `runAutopilotTick` via `notify-telegram.js` (deduped state in `artifacts/autopilot/.last-alert-state.json`).
+
 ## Health semantics
 
 - **green**: manifest + trace present, `gateFailureCount === 0`

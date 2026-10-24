@@ -27,7 +27,9 @@ async function tick(label) {
   }
   ticking = true;
   try {
-    await runAutopilotTick(CONTROL_ROOT);
+    await runAutopilotTick(CONTROL_ROOT, {
+      dryRun: process.env.TELEGRAM_DRY_RUN === "1",
+    });
   } catch (e) {
     console.error(
       "[autopilot] tick failed:",

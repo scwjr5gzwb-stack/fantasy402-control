@@ -4,12 +4,14 @@ import {
   appendAutopilotAlert,
   writeAutopilotState,
 } from "./autopilot-state.js";
+import { notifyAutopilotAlerts, resetAlertState } from "./notify-telegram.js";
 
 /**
  * @param {string} [controlRoot]
+ * @param {{ dryRun?: boolean }} [options]
  * @returns {Promise<Record<string, unknown>>}
  */
-export async function runAutopilotTick(controlRoot) {
+export async function runAutopilotTick(controlRoot, options = {}) {
   const metrics = await loadControlMetrics();
   const evaluation = evaluateHealth(metrics);
   const row = {
@@ -32,7 +34,13 @@ export async function runAutopilotTick(controlRoot) {
     );
   }
 
-  if (evaluation.ok) {
+  if (evaluation.alerts.length > 0) {
+    await notifyAutopilotAlerts(evaluation.alerts, metrics, {
+      dryRun: options.dryRun,
+      controlRoot,
+    });
+  } else if (evaluation.ok) {
+    await resetAlertState(controlRoot);
     console.log("[autopilot] green", evaluation.snapshot);
   } else if (evaluation.alerts.length === 0) {
     console.log("[autopilot] amber", evaluation.snapshot);
