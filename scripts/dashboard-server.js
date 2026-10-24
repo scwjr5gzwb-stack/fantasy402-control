@@ -9,6 +9,48 @@ function pct(n) {
   return `${(Number(n) * 100).toFixed(1)}%`;
 }
 
+/** @param {unknown} s */
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** @param {unknown} verdict */
+function verdictStyle(verdict) {
+  const v = String(verdict ?? "").toLowerCase();
+  if (v === "coordinated" || v === "copying") {
+    return "color: var(--bad); font-weight: 600;";
+  }
+  if (v === "lean" || v === "steam") {
+    return "color: var(--warn); font-weight: 600;";
+  }
+  return "color: var(--ok); font-weight: 600;";
+}
+
+/** @param {Array<Record<string, unknown>>} top */
+function renderSyndicateRows(top) {
+  if (top.length === 0) {
+    return '<tr><td colspan="6" style="text-align: center;">No syndicates flagged.</td></tr>';
+  }
+  return top
+    .map((t) => {
+      const style = verdictStyle(t.verdict);
+      const label = escapeHtml(String(t.verdict ?? "").toUpperCase());
+      return `<tr>
+      <td>${escapeHtml(t.a)} / ${escapeHtml(t.b)}</td>
+      <td>${escapeHtml(t.sameGames)}</td>
+      <td>${escapeHtml(t.same)}</td>
+      <td>${escapeHtml(t.opp)}</td>
+      <td>${escapeHtml(t.lead)}</td>
+      <td style="${style}">${label}</td>
+    </tr>`;
+    })
+    .join("");
+}
+
 /** @param {Record<string, unknown>} m */
 function renderHtml(m) {
   const h = /** @type {Record<string, unknown>} */ (m.health ?? {});
@@ -18,6 +60,11 @@ function renderHtml(m) {
   );
   const cj = /** @type {Record<string, unknown>} */ (gc.cohortJoin ?? {});
   const summary = /** @type {Record<string, unknown>} */ (m.graphSummary ?? {});
+  const topSyndicates = /** @type {Array<Record<string, unknown>>} */ (
+    Array.isArray(summary.top) ? summary.top : []
+  );
+  const syndicateRows = renderSyndicateRows(topSyndicates);
+  const lastUpdatedAt = new Date(String(m.loadedAt)).toLocaleTimeString();
   const badge =
     h.overall === "green" ? "ok" : h.overall === "amber" ? "warn" : "bad";
 
@@ -47,6 +94,12 @@ function renderHtml(m) {
     footer { padding: 0 1.5rem 1.5rem; color: var(--muted); font-size: 12px; }
     a { color: var(--accent); }
     code { font-size: 12px; }
+    .syndicate-wrap { padding: 0 1.5rem 1.5rem; }
+    .syndicate-wrap h2 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; }
+    #syndicate-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-family: ui-monospace, monospace; font-size: 13px; }
+    #syndicate-table th, #syndicate-table td { padding: 8px; border: 1px solid #243044; text-align: left; }
+    #syndicate-table thead tr { background: #121a26; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    #last-updated { text-align: right; font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
   </style>
 </head>
 <body>
@@ -81,10 +134,104 @@ function renderHtml(m) {
       </dl>
     </section>
   </main>
+  <section class="syndicate-wrap">
+    <h2>Top coordinated syndicates</h2>
+    <div id="last-updated">Last updated: ${lastUpdatedAt}</div>
+    <table id="syndicate-table">
+      <thead>
+        <tr>
+          <th>Pair (A / B)</th>
+          <th>Games</th>
+          <th>Same</th>
+          <th>Opp</th>
+          <th>Lead</th>
+          <th>Verdict</th>
+        </tr>
+      </thead>
+      <tbody id="syndicate-body">
+        ${syndicateRows}
+      </tbody>
+    </table>
+  </section>
   <footer>
     Snapshot ${String(m.loadedAt)} · API <a href="/api/metrics">/api/metrics</a> ·
     Refresh replay: <code>FANTASY402_GRAPH_COHORT=graded bun run graph:replay</code> in fantasy402-skills
   </footer>
+  <script>
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function verdictStyle(verdict) {
+      const v = String(verdict ?? "").toLowerCase();
+      if (v === "coordinated" || v === "copying") {
+        return "color: var(--bad); font-weight: 600;";
+      }
+      if (v === "lean" || v === "steam") {
+        return "color: var(--warn); font-weight: 600;";
+      }
+      return "color: var(--ok); font-weight: 600;";
+    }
+
+    async function updateSyndicates() {
+      try {
+        const res = await fetch("/api/metrics");
+        const data = await res.json();
+        const tbody = document.getElementById("syndicate-body");
+        const top = data.graphSummary?.top || [];
+
+        if (top.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" style="text-align: center;">No syndicates flagged.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = top
+          .map((t) => {
+            const style = verdictStyle(t.verdict);
+            const label = escapeHtml(String(t.verdict ?? "").toUpperCase());
+            return (
+              "<tr>" +
+              "<td>" +
+              escapeHtml(t.a) +
+              " / " +
+              escapeHtml(t.b) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(t.sameGames) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(t.same) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(t.opp) +
+              "</td>" +
+              "<td>" +
+              escapeHtml(t.lead) +
+              "</td>" +
+              '<td style="' +
+              style +
+              '">' +
+              label +
+              "</td>" +
+              "</tr>"
+            );
+          })
+          .join("");
+
+        document.getElementById("last-updated").textContent =
+          "Last updated: " + new Date().toLocaleTimeString();
+      } catch (err) {
+        console.error("Failed to update syndicates:", err);
+      }
+    }
+
+    setInterval(updateSyndicates, 10000);
+  </script>
 </body>
 </html>`;
 }
