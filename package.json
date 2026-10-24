@@ -1,0 +1,13 @@
+{
+  "name": "fantasy402-control",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dashboard": "bun --env-file=.env.local scripts/dashboard-server.js",
+    "bot": "bun --env-file=.env.local scripts/grok-bot.js",
+    "bot:once": "bun --env-file=.env.local scripts/grok-bot.js --once",
+    "metrics": "bun scripts/load-metrics.js",
+    "fmt": "bun fmt",
+    "fmt:check": "bun fmt --check"
+  }
+}
