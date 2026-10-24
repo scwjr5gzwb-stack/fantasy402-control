@@ -51,6 +51,33 @@ export function evaluateHealth(metrics, opts = {}) {
     });
   }
 
+  const pending = /** @type {Record<string, unknown>} */ (
+    metrics.pending ?? {}
+  );
+  const htmlCaptured = pending.htmlSnapshotCaptured === true;
+  const boundRots = pending.boundRots;
+  if (
+    htmlCaptured &&
+    (boundRots == null || (typeof boundRots === "number" && boundRots === 0))
+  ) {
+    alerts.push({
+      code: "pending_parse_empty",
+      message:
+        "Pending HTML snapshot captured but pending-rot-leg-trace has no parsed legs",
+      severity: "warning",
+    });
+  } else if (
+    pending.replayBasis === "pending" &&
+    pending.available !== true &&
+    htmlCaptured
+  ) {
+    alerts.push({
+      code: "pending_metrics_missing",
+      message: "Pending replay manifest but pending metrics unavailable",
+      severity: "warning",
+    });
+  }
+
   const ok = alerts.length === 0 && h.overall === "green";
   return {
     ok,
@@ -60,6 +87,7 @@ export function evaluateHealth(metrics, opts = {}) {
       gradedRotCoveragePct: pct ?? h.gradedRotCoveragePct ?? null,
       gateFailures: gateFailures ?? null,
       threshold,
+      pendingBoundRots: boundRots ?? null,
       evaluatedAt: new Date().toISOString(),
     },
   };

@@ -53,4 +53,18 @@ describe("evaluate-health", () => {
     const r = evaluateHealth({ health: { overall: "red" }, manifest: null });
     expect(r.alerts.some((a) => a.code === "artifacts_missing")).toBe(true);
   });
+
+  test("pending html without parse triggers warning", () => {
+    const r = evaluateHealth(
+      {
+        health: { overall: "green", allGatesPass: true, gateFailures: 0 },
+        manifest: {
+          graphCohort: { cohortJoin: { gradedRotCoveragePct: 0.9 } },
+        },
+        pending: { htmlSnapshotCaptured: true, boundRots: 0 },
+      },
+      { coverageMin: 0.8 },
+    );
+    expect(r.alerts.some((a) => a.code === "pending_parse_empty")).toBe(true);
+  });
 });

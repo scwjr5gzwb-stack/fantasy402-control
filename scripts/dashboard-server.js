@@ -9,6 +9,12 @@ function pct(n) {
   return `${(Number(n) * 100).toFixed(1)}%`;
 }
 
+/** @param {unknown} n */
+function fmtNum(n) {
+  if (n == null || !Number.isFinite(Number(n))) return "—";
+  return Number(n).toLocaleString("en-US");
+}
+
 /** @param {unknown} s */
 function escapeHtml(s) {
   return String(s)
@@ -67,6 +73,11 @@ function renderHtml(m) {
   const lastUpdatedAt = new Date(String(m.loadedAt)).toLocaleTimeString();
   const badge =
     h.overall === "green" ? "ok" : h.overall === "amber" ? "warn" : "bad";
+  const pending = /** @type {Record<string, unknown>} */ (m.pending ?? {});
+  const pendingLive = pending.available === true;
+  const pendingPill = pendingLive ? "live" : "off";
+  const pendingPillText = pendingLive ? "Live" : "Offline";
+  const replayBasis = String(m.replayCohort ?? gc.basis ?? "—");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -86,6 +97,11 @@ function renderHtml(m) {
     .badge.bad { background: #7f1d1d; color: #fecaca; }
     main { padding: 1.25rem 1.5rem 2rem; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     .card { background: var(--panel); border: 1px solid #243044; border-radius: 10px; padding: 1rem 1.1rem; }
+    .card.pending-live { border-left: 4px solid var(--ok); }
+    .card.pending-off { border-left: 4px solid var(--muted); }
+    .pill { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .pill.live { color: var(--ok); }
+    .pill.off { color: var(--muted); }
     .card h2 { margin: 0 0 0.65rem; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
     .metric { font-size: 1.65rem; font-weight: 650; font-variant-numeric: tabular-nums; }
     .sub { color: var(--muted); font-size: 12px; margin-top: 0.35rem; }
@@ -104,7 +120,7 @@ function renderHtml(m) {
 </head>
 <body>
   <header>
-    <h1>Fantasy402 — Graded cohort control</h1>
+    <h1>Fantasy402 — Graded &amp; pending control</h1>
     <span class="badge ${badge}">${String(h.overall ?? "unknown")}</span>
     <span class="sub">Skills root: <code>${String(m.skillsRoot)}</code></span>
   </header>
@@ -120,9 +136,15 @@ function renderHtml(m) {
       <div class="sub">${cj.gradedLegsWithBoundRot ?? "—"} bound / ${cj.gradedInfoSampled ?? "—"} sampled</div>
     </section>
     <section class="card">
-      <h2>Graph replay</h2>
-      <div class="metric">${summary.rows ?? "—"} legs</div>
-      <div class="sub">${summary.edges ?? "—"} edges · build ${manifest.liveBuild ?? "—"}</div>
+      <h2>Last graph replay (${escapeHtml(replayBasis)})</h2>
+      <div class="metric">${fmtNum(summary.rows)} legs</div>
+      <div class="sub">${fmtNum(summary.edges)} edges · build ${manifest.liveBuild ?? "—"}</div>
+    </section>
+    <section class="card ${pendingLive ? "pending-live" : "pending-off"}">
+      <h2>Pending graph <span class="pill ${pendingPill}">${pendingPillText}</span></h2>
+      <div class="metric">${fmtNum(pending.legs)} legs</div>
+      <div class="sub">${fmtNum(pending.edges)} edges · DOM rots ${fmtNum(pending.boundRots)}</div>
+      <div class="sub">HTML snapshot: ${pending.htmlSnapshotCaptured ? "yes" : pending.htmlSnapshotSkipped ? "skipped" : "—"}${pending.htmlSnapshotReason ? ` (${escapeHtml(String(pending.htmlSnapshotReason).slice(0, 48))})` : ""}</div>
     </section>
     <section class="card">
       <h2>Cohort join</h2>
