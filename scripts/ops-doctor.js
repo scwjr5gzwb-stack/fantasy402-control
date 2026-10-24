@@ -6,7 +6,6 @@
  */
 import { join } from "path";
 import { loadControlMetrics, skillsRoot } from "./lib/load-metrics.js";
-import { evaluateHealth } from "./lib/evaluate-health.js";
 
 const CONTROL_ROOT = join(import.meta.dir, "..");
 
@@ -79,15 +78,18 @@ line("dashboard /api/metrics", dash.ok, dash.detail);
 const release = await softReleaseVerify(root);
 line("release verify", release.ok, release.detail);
 
-const evaluation = evaluateHealth(metrics);
-const alerts = evaluation.alerts;
+const alerts = /** @type {Array<Record<string, unknown>>} */ (
+  metrics.health.activeAlerts ?? []
+);
 console.log("");
-if (alerts.length === 0 && evaluation.ok) {
+if (alerts.length === 0 && metrics.health.ok === true) {
   console.log("health: green");
   process.exit(0);
 }
 
-console.log(`health: ${evaluation.ok ? "amber" : "not ok"} (${alerts.length} alert(s))`);
+console.log(
+  `health: ${metrics.health.ok ? "amber" : "not ok"} (${alerts.length} alert(s))`,
+);
 for (const a of alerts) {
   console.log(`  [${a.severity}] ${a.code}: ${a.message}`);
   if (a.remediation) console.log(`    → ${a.remediation}`);

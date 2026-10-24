@@ -2,6 +2,8 @@
 
 This repo is the **ops layer** for the graded graph cohort. Implementation lives in **fantasy402-skills**.
 
+Cross-repo rules: **`../fantasy402-skills/docs/CROSS-REPO-BOUNDARIES.md`**. Skills → control via **HTTP only** (`/api/trigger-reload`, `/api/autopilot/tick`). Artifact layout: **`schema/artifact-paths.json`**.
+
 | Task                          | Where                                                                |
 | ----------------------------- | -------------------------------------------------------------------- |
 | Rot parser, gates, `bun rots` | `../fantasy402-skills` — `fantasy402-graded-rot.md`                  |

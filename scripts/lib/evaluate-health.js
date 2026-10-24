@@ -5,6 +5,9 @@ import { withRemediations } from "./health-remediations.js";
  * @param {{ coverageMin?: number }} [opts]
  */
 export function evaluateHealth(metrics, opts = {}) {
+  const skillsRootPath =
+    opts.skillsRoot ??
+    (typeof metrics.skillsRoot === "string" ? metrics.skillsRoot : undefined);
   const coverageMin =
     opts.coverageMin ??
     Number(process.env.FANTASY402_COVERAGE_ALERT_MIN ?? "0.8");
@@ -124,7 +127,7 @@ export function evaluateHealth(metrics, opts = {}) {
   return {
     ok,
     overall,
-    alerts: withRemediations(alerts),
+    alerts: withRemediations(alerts, skillsRootPath),
     snapshot: {
       overall,
       gradedRotCoveragePct: pct ?? h.gradedRotCoveragePct ?? null,

@@ -1,5 +1,4 @@
 import { loadControlMetrics } from "./load-metrics.js";
-import { evaluateHealth } from "./evaluate-health.js";
 import { tryHealPendingParseFromSnapshot } from "./autopilot-heal.js";
 import { notifyDashboardReload } from "./notify-dashboard-reload.js";
 import {
@@ -25,12 +24,16 @@ export async function runAutopilotTick(controlRoot, options = {}) {
   } else if (heal.error) {
     console.warn("[autopilot] heal failed:", heal.error);
   }
-  const evaluation = evaluateHealth(metrics);
+  const alerts = /** @type {Array<Record<string, unknown>>} */ (
+    metrics.health.activeAlerts ?? []
+  );
   const row = {
     at: new Date().toISOString(),
-    ok: evaluation.ok,
-    alerts: evaluation.alerts,
-    snapshot: evaluation.snapshot,
+    ok: metrics.health.ok === true,
+    alerts,
+    snapshot: metrics.health.snapshot ?? {
+      overall: metrics.health.overall,
+    },
     skillsRoot: metrics.skillsRoot,
   };
 
@@ -39,7 +42,7 @@ export async function runAutopilotTick(controlRoot, options = {}) {
     controlRoot,
   );
 
-  for (const alert of evaluation.alerts) {
+  for (const alert of alerts) {
     await appendAutopilotAlert({ ...row, alert }, controlRoot);
     console.error(
       `[autopilot] ${alert.severity} ${alert.code}: ${alert.message}`,
@@ -49,16 +52,16 @@ export async function runAutopilotTick(controlRoot, options = {}) {
     }
   }
 
-  if (evaluation.alerts.length > 0) {
-    await notifyAutopilotAlerts(evaluation.alerts, metrics, {
+  if (alerts.length > 0) {
+    await notifyAutopilotAlerts(alerts, metrics, {
       dryRun: options.dryRun,
       controlRoot,
     });
-  } else if (evaluation.ok) {
+  } else if (row.ok) {
     await resetAlertState(controlRoot);
-    console.log("[autopilot] green", evaluation.snapshot);
-  } else if (evaluation.alerts.length === 0) {
-    console.log("[autopilot] amber", evaluation.snapshot);
+    console.log("[autopilot] green", row.snapshot);
+  } else if (alerts.length === 0) {
+    console.log("[autopilot] amber", row.snapshot);
   }
 
   return row;

@@ -4,6 +4,7 @@ import {
   broadcastDashboardReload,
   createSseResponse,
 } from "./lib/dashboard-sse-hub.js";
+import { runAutopilotTick } from "./lib/run-autopilot-tick.js";
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 4020);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
@@ -307,6 +308,17 @@ const server = Bun.serve({
       }
       const clients = broadcastDashboardReload();
       return Response.json({ ok: true, clients });
+    }
+    if (url.pathname === "/api/autopilot/tick" && req.method === "POST") {
+      if (!reloadTriggerAuthorized(req)) {
+        return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+      }
+      const row = await runAutopilotTick();
+      return Response.json({
+        ok: row.ok === true,
+        overall: row.snapshot?.overall ?? null,
+        alertCount: row.alerts?.length ?? 0,
+      });
     }
     if (url.pathname === "/api/metrics") {
       const m = await loadControlMetrics();

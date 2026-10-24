@@ -1,3 +1,5 @@
+import { dashboardAuthHeaders, dashboardBaseUrl } from "./dashboard-url.js";
+
 /**
  * POST /api/trigger-reload on the local dashboard (SSE broadcast to browsers).
  *
@@ -8,15 +10,8 @@ export async function notifyDashboardReload(env = process.env) {
     return { skipped: true, reason: "disabled" };
   }
 
-  const explicit = env.FANTASY402_DASHBOARD_RELOAD_URL?.trim();
-  const host = env.DASHBOARD_HOST?.trim() || "127.0.0.1";
-  const port = env.DASHBOARD_PORT?.trim() || "4020";
-  const url =
-    explicit || `http://${host}:${port}/api/trigger-reload`;
-
-  const headers = /** @type {Record<string, string>} */ ({});
-  const token = env.FANTASY402_DASHBOARD_RELOAD_TOKEN?.trim();
-  if (token) headers["x-reload-token"] = token;
+  const url = `${dashboardBaseUrl(env)}/api/trigger-reload`;
+  const headers = dashboardAuthHeaders(env);
 
   try {
     const res = await fetch(url, {

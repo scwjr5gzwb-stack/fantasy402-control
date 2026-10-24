@@ -159,10 +159,20 @@ export async function loadControlMetrics(root = skillsRoot()) {
     pendingTraceRaw,
   );
 
-  const evaluation = evaluateHealth(out);
+  const evaluation = evaluateHealth(out, { skillsRoot: out.skillsRoot });
   out.health.overall = evaluation.overall;
   out.health.ok = evaluation.ok;
   out.health.activeAlerts = evaluation.alerts;
+  out.health.snapshot = evaluation.snapshot;
 
   return out;
+}
+
+/**
+ * Canonical ops snapshot (metrics + embedded health). Prefer over calling evaluateHealth twice.
+ *
+ * @param {string} [root]
+ */
+export async function getControlSnapshot(root = skillsRoot()) {
+  return loadControlMetrics(root);
 }
