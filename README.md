@@ -48,6 +48,26 @@ FANTASY402_GRAPH_COHORT=graded bun run graph:replay
 
 Reload the dashboard to see updated metrics.
 
+## Autopilot (Bun.cron hybrid)
+
+Requires **Bun ≥ 1.4.4**.
+
+1. In **fantasy402-skills**, register the daily OS replay job:
+
+   ```bash
+   bun run graded:cron:install
+   bun run graded:cron:status
+   ```
+
+2. In **fantasy402-control**, run the in-process metrics poller (log-only alerts under `artifacts/autopilot/`):
+
+   ```bash
+   bun run autopilot          # long-lived; polls FANTASY402_CRON_POLL_SCHEDULE
+   bun run autopilot:once     # single health check (exit 0 only when green)
+   ```
+
+   Run **`bun run dashboard`** separately for the UI. Alerts log when `gateFailures > 0`, artifacts are missing, or `gradedRotCoveragePct` is below **`FANTASY402_COVERAGE_ALERT_MIN`** (default `0.80`).
+
 ## Release tag
 
 Parser + graded integration: **`v1.0.0-graded-cohort`** on fantasy402-skills (`373da5f`).

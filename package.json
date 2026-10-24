@@ -7,6 +7,9 @@
     "bot": "bun --env-file=.env.local scripts/grok-bot.js",
     "bot:once": "bun --env-file=.env.local scripts/grok-bot.js --once",
     "metrics": "bun scripts/load-metrics.js",
+    "autopilot": "bun --env-file=.env.local scripts/autopilot-daemon.js",
+    "autopilot:once": "bun --env-file=.env.local scripts/autopilot-once.js",
+    "test": "bun test test",
     "fmt": "bun fmt",
     "fmt:check": "bun fmt --check"
   }

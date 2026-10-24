@@ -16,3 +16,5 @@ jobs:
         run: bun run --no-env-file fmt:check
       - name: Metrics smoke test
         run: bun run --no-env-file metrics
+      - name: Unit tests
+        run: bun run --no-env-file test
